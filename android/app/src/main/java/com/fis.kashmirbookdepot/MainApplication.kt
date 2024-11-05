@@ -1,5 +1,5 @@
 package fis.kashmirbookdepot
-
+import com.fis.kashmirbookdepot.BuildConfig
 import android.app.Application
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
