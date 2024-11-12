@@ -1,56 +1,82 @@
 import { StyleSheet, Text, View, Modal, TouchableOpacity, ActivityIndicator, ToastAndroid } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import Video from 'react-native-video';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
-
-// const adUnitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : 'ca-app-pub-2247973352794973/9668639365';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 
 const Wellcome = ({ route }) => {
-    const { Username, loginDate } = route.params;
-    const [summary, setSummary] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [showTutorialModal, setShowTutorialModal] = useState(false);
-    const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const { Username, UserId: paramUserId, loginDate } = route.params;  // Destructuring UserId from route params
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [displayedLoginDate, setDisplayedLoginDate] = useState("");
 
-    useEffect(() => {
-        fetchSummary();
-        if (loginDate === "First Login") {
-            setShowTutorialModal(true);
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        // Fetch UserId from params or AsyncStorage (ensure AsyncStorage holds the updated UserId)
+        let userId = paramUserId || await AsyncStorage.getItem('saveduserId');
+        
+        if (!userId) {
+          ToastAndroid.show('User ID is missing, please log in again.', ToastAndroid.SHORT);
+          return;
         }
-    }, [loginDate]);
 
-    const fetchSummary = async () => {
-        try {
-            const response = await fetch('https://pos.kashmirbookdepot.com/webservice/api.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `customer_id=${global.UserId}&query=fetch.summary`,
-            });
+        console.log('UserId from params or AsyncStorage:', userId);
 
-            const result = await response.json();
-            console.log(result);
-            if (result && result.Orders !== undefined && result.Total !== undefined) {
-                setSummary(result);
-            } else {
-                ToastAndroid.show('Failed to fetch summary data', ToastAndroid.SHORT);
-            }
-        } catch (error) {
-            console.error('Fetch summary error:', error);
-            ToastAndroid.show('Network error. Please try again later.', ToastAndroid.SHORT);
-        } finally {
-            setLoading(false);
-        }
+        global.UserId = userId; // Ensure global.UserId is correctly updated
+        setDisplayedLoginDate(loginDate);
+
+        // Fetch summary for the correct UserId
+        await fetchSummary(userId);
+
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
     };
 
-    const handleVideoEnd = () => {
-        setIsPlayingVideo(false);
-        setShowTutorialModal(false);
-    };
+    // Initialize the data when the component mounts or when paramUserId/loginDate changes
+    initializeData();
+  }, [paramUserId, loginDate]);  // Run this effect when paramUserId or loginDate changes
 
+  const fetchSummary = async (userId) => {
+    console.log('Fetching summary for UserId:', userId);
+    
+    setLoading(true);
+    try {
+      const response = await fetch('https://pos.kashmirbookdepot.com/webservice/api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `customer_id=${userId}&query=fetch.summary`,
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch summary');
+
+      const result = await response.json();
+      console.log('Summary data:', result);
+
+      // Check for the necessary fields in the response and update state
+      if (result?.Orders !== undefined && result?.Total !== undefined) {
+        setSummary(result);  // Update summary with the correct data
+      } else {
+        ToastAndroid.show('Failed to fetch summary data', ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error('Fetch summary error:', error);
+      ToastAndroid.show('Network error. Please try again later.', ToastAndroid.SHORT);
+    } finally {
+      setLoading(false);  // Set loading to false when done
+    }
+  };
+  const handleVideoEnd = () => {
+    setIsPlayingVideo(false);
+    setShowTutorialModal(false);
+  };
     return (
         <View style={styles.container}>
             <View style={styles.headercontainer}>
-            <View></View>
+                <View></View>
                 <Text style={styles.text}>Kashmir Book Depot</Text>
                 <TouchableOpacity onPress={() => setShowTutorialModal(true)}>
                     <Text style={styles.helpText}>Tutorial</Text>
@@ -59,16 +85,15 @@ const Wellcome = ({ route }) => {
             <View style={styles.maincontainer}>
                 {/* Top Ad Banner */}
                 <View style={styles.adContainer}>
-                <BannerAd
-    //   unitId={adUnitId}
-    unitId='ca-app-pub-2247973352794973/9668639365'
-      size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-      requestOptions={{
-        networkExtras: {
-          collapsible: 'top',
-        },
-      }}
-    />
+                    <BannerAd
+                        unitId='ca-app-pub-2247973352794973/9668639365'
+                        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                        requestOptions={{
+                            networkExtras: {
+                                collapsible: 'top',
+                            },
+                        }}
+                    />
                 </View>
                 <View style={{ flexDirection: 'row', marginBottom: 50 }}>
                     <Text style={styles.wellcomtext}>Welcome </Text>
@@ -106,16 +131,15 @@ const Wellcome = ({ route }) => {
 
                 {/* Bottom Ad Banner */}
                 <View style={styles.adContainer1}>
-                <BannerAd
-    //   unitId={adUnitId}
-    unitId='ca-app-pub-2247973352794973/9668639365'
-      size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-      requestOptions={{
-        networkExtras: {
-          collapsible: 'bottom',
-        },
-      }}
-    />
+                    <BannerAd
+                        unitId='ca-app-pub-2247973352794973/9668639365'
+                        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                        requestOptions={{
+                            networkExtras: {
+                                collapsible: 'bottom',
+                            },
+                        }}
+                    />
                 </View>
             </View>
 
@@ -136,10 +160,20 @@ const Wellcome = ({ route }) => {
                 </View>
             </Modal>
 
-            {/* Video Player */}
+            {/* Video Player with Close Button */}
             {isPlayingVideo && (
                 <Modal transparent={true}>
                     <View style={styles.videoContainer}>
+                        {/* Close Button */}
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => {
+                            setIsPlayingVideo(false)
+                            setShowTutorialModal(false)
+                            }}
+                        >
+                            <Text style={styles.closeButtonText}>X</Text>
+                        </TouchableOpacity>
                         <Video
                             source={require('../../assets/images/InShot_20241025_175352586.mp4')}
                             style={styles.video}
@@ -293,6 +327,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         position: 'absolute',
         bottom: -290,
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: 5,
+        borderRadius: 15,
+    },
+    closeButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
 

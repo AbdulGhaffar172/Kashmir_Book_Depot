@@ -77,13 +77,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.kashmir_book_depot"
+    namespace "com.fis.kashmirbookdepot"
     defaultConfig {
         applicationId "fis.kashmirbookdepot"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 8
-        versionName "1.8"
+        versionCode 10
+        versionName "1.1.0"
     }
     signingConfigs {
         release {

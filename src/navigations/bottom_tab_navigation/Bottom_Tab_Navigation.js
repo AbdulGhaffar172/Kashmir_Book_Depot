@@ -1,5 +1,6 @@
 import { StyleSheet, View, Text, Modal, TouchableOpacity } from 'react-native';
 import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ledger from '../../screens/ledger/Ledger';
 import Invoices from '../../screens/invoices/Invoices';
@@ -15,7 +16,10 @@ const Tab = createBottomTabNavigator();
 const Bottom_Tab_Navigation = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
 
-  const logout = () => {
+  const logout = async () => {
+    // Clear the AsyncStorage data when logging out
+    await AsyncStorage.multiRemove(['savedUsername', 'savedPassword',  'saveduserId']);
+    global.UserId = null;
     setModalVisible(true); // Show modal when logout is pressed
   };
 

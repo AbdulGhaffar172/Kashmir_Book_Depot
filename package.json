@@ -1,5 +1,5 @@
 {
-  "name": "kashmir_book_depot",
+  "name": "fis.kashmirbookdepot",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -37,7 +37,8 @@
     "react-native-webview": "^13.12.3",
     "react-navigation": "^5.0.0",
     "react-navigation-stack": "^2.10.4",
-    "rn-fetch-blob": "^0.12.0"
+    "rn-fetch-blob": "^0.12.0",
+    "use-debounce": "^10.0.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

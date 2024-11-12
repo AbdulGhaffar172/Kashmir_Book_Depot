@@ -1,4 +1,4 @@
-package fis.kashmirbookdepot
+package com.fis.kashmirbookdepot
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

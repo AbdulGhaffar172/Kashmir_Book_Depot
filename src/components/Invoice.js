@@ -185,11 +185,11 @@ const Invoice = ({ id, date, total, invoice, no }) => {
         <View style={styles.details}>
           <View>
             <View style={styles.detailscontainer}>
-              <Text style={styles.heading}>Date    </Text>
+              <Text style={styles.heading}>Date</Text>
               <Text style={styles.heading1}>{date}</Text>
             </View>
-            <View style={styles.detailscontainer}>
-              <Text style={styles.amountText}>Amount       </Text>
+            <View style={styles.detailscontainer1}>
+              <Text style={styles.amountText}>Amount</Text>
               <Text style={styles.heading1}>{total}</Text>
             </View>
           </View>
@@ -293,10 +293,17 @@ const styles = StyleSheet.create({
   },
   detailscontainer: {
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     flexDirection:"row",
     marginTop:8,
-    width:'70%',
+    width:'65%',
+  },
+  detailscontainer1: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexDirection:"row",
+    marginTop:8,
+    width:'60%',
   },
   details: {
    flexDirection:'row',

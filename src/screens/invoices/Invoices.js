@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View, ActivityIndicator, FlatList } from 'react-native';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { size } from 'react-native-responsive-sizes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/Header';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -8,48 +9,71 @@ import NavigationNames from '../../utils/NavigationNames';
 import Invoice from '../../components/Invoice';
 
 const Invoices = () => {
-  const [invoices, setInvoices] = useState([]);
-  const [originalInvoices, setOriginalInvoices] = useState([]);
-  const [isSecondViewVisible, setSecondViewVisible] = useState(false);
+  const [invoices, setInvoices] = useState([]); // Store the invoices to display
+  const [previousInvoices, setPreviousInvoices] = useState([]); // Store previous invoices fetched
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
   const [allInvoicesLoaded, setAllInvoicesLoaded] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   const navigation = useNavigation();
 
+  useEffect(() => {
+    const fetchUserId = async () => {
+      // Retrieve UserId from AsyncStorage if not set globally
+      if (!global.UserId) {
+        const userId = await AsyncStorage.getItem('savedUserid'); // Adjust key if necessary
+        if (userId) {
+          global.UserId = userId;
+        } else {
+          ToastAndroid.show('User ID not found, please log in again.', ToastAndroid.SHORT);
+          return; // Prevent further actions if User ID is not found
+        }
+      }
+      fetchInvoices(); // Call the function to fetch invoices once UserId is fetched
+    };
+
+    fetchUserId(); // Call the async function on mount
+
+    // Empty dependency array ensures this runs only once when the component mounts
+  }, [fetchInvoices]);
+
   const fetchInvoices = useCallback(
-    async (reset = false) => {
-      if (reset) setPage(1);
+    async () => {
       setLoading(true);
-      
       try {
-        const pageParam = reset ? 1 : page;
-        const response = await fetch(
-          `https://pos.kashmirbookdepot.com/webservice/api.php?customerId=${global.UserId}&query=fetch.all_invoice&page=${pageParam}`
-        );
+        console.log('Fetching invoices...'); // Debug log
+        const url = `https://pos.kashmirbookdepot.com/webservice/api.php?customerId=${global.UserId}&query=fetch.all_invoice`;
+        console.log('URL:', url); // Log the URL being fetched
+
+        const response = await fetch(url);
+        console.log('Response status:', response.status); // Log the response status
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
+        console.log('Fetched data:', data); // Log the fetched data
 
         if (data.length === 0) {
-          setAllInvoicesLoaded(true);
+          setAllInvoicesLoaded(true); // No more invoices to load
         } else {
-          setInvoices((prevInvoices) => (reset ? data : [...prevInvoices, ...data]));
-          setOriginalInvoices((prevInvoices) => (reset ? data : [...prevInvoices, ...data]));
+          setInvoices(data); // Set all invoices
         }
       } catch (error) {
         console.error('Error fetching invoices:', error);
-        ToastAndroid.show('Error fetching invoices', ToastAndroid.SHORT);
+        ToastAndroid.show('Error fetching invoices: ' + error.message, ToastAndroid.SHORT);
       } finally {
         setLoading(false);
       }
     },
-    [page]
+    []
   );
 
   useFocusEffect(
     useCallback(() => {
-      fetchInvoices(true);
+      fetchInvoices(); // Fetch invoices on screen focus
       setSearchQuery('');
       setAllInvoicesLoaded(false);
       setIsSearching(false);
@@ -74,8 +98,8 @@ const Invoices = () => {
 
       if (data && data.length > 0) {
         console.log('Search Results', data);
-        setInvoices(data);
-        setSecondViewVisible(false);
+        setInvoices(data); // Set invoices to only search results
+        setPreviousInvoices([]); // Clear previous invoices on search
         setAllInvoicesLoaded(true);
         ToastAndroid.show('Search Successful', ToastAndroid.SHORT);
       } else {
@@ -91,21 +115,13 @@ const Invoices = () => {
     }
   };
 
-  const resetSearch = () => {
-    setInvoices(originalInvoices);
+  const resetSearch = useCallback(() => {
+    setInvoices(previousInvoices);
     setSearchQuery('');
-    setSecondViewVisible(false);
-    setIsSearching(false);
     setAllInvoicesLoaded(false);
-  };
+  }, [previousInvoices]);
 
-  const handleLoadMore = () => {
-    if (!loading && !allInvoicesLoaded && !isSearching) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  };
-
-  const handleInputChange = (text) => {
+  const handleInputChange = useCallback((text) => {
     let updatedText = text;
     if (!updatedText.startsWith('SO-')) {
       updatedText = `SO-${updatedText}`;
@@ -115,22 +131,41 @@ const Invoices = () => {
       updatedText += '-';
     }
     setSearchQuery(updatedText.replace('SO-', ''));
-  };
+  }, []);
+
+  const header = useMemo(() => (
+    <Header
+      text={'Invoices'}
+      onPress={() => {
+        navigation.navigate(NavigationNames.Ledger);
+        resetSearch();
+      }}
+      rightButton={
+        <TouchableOpacity onPress={fetchInvoices}>
+          <FontAwesome5 name="sync" color="white" size={20} />
+        </TouchableOpacity>
+      }
+    />
+  ), [navigation, resetSearch, fetchInvoices]);
+
+  const renderFooter = useMemo(() => (
+    loading && <ActivityIndicator size="small" color="#cb0a36" />
+  ), [loading]);
+
+  // Memoize the Invoice component to prevent unnecessary re-renders
+  const MemoizedInvoice = React.memo(({ item }) => (
+    <Invoice
+      no={item.purchase_order_no}
+      id={item.id}
+      date={item.purchase_order_date}
+      total={` ${Number(item.total_price).toLocaleString('en-IN')}`}
+      invoice={item}
+    />
+  ));
 
   return (
     <View style={styles.container}>
-      <Header
-        text={'Invoices'}
-        onPress={() => {
-          navigation.navigate(NavigationNames.Ledger);
-          resetSearch();
-        }}
-        rightButton={
-          <TouchableOpacity onPress={() => fetchInvoices(true)}>
-            <FontAwesome5 name="sync" color="white" size={20} />
-          </TouchableOpacity>
-        }
-      />
+      {header}
       <View style={styles.secondView}>
         <View style={styles.input}>
           <Text style={styles.soText}>SO-</Text>
@@ -146,24 +181,18 @@ const Invoices = () => {
         </TouchableOpacity>
       </View>
 
-      {loading && page === 1 ? (
+      {loading ? (
         <ActivityIndicator size="large" color="#cb0a36" style={styles.loadingIndicator} />
       ) : (
         <FlatList
           data={invoices}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <Invoice
-              no={item.purchase_order_no}
-              id={item.id}
-              date={item.purchase_order_date}
-              total={` ${Number(item.total_price).toLocaleString('en-IN')}`}
-              invoice={item}
-            />
-          )}
-          onEndReached={handleLoadMore}
-          // onEndReachedThreshold={0.5}
-          ListFooterComponent={() => loading && <ActivityIndicator size="small" color="#cb0a36" />}
+          renderItem={({ item }) => <MemoizedInvoice item={item} />}  // Use memoized Invoice component
+          ListFooterComponent={renderFooter}
+          initialNumToRender={100}
+          maxToRenderPerBatch={100}
+          windowSize={100}
+          removeClippedSubviews={true}
         />
       )}
     </View>

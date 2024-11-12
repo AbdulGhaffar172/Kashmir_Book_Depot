@@ -1,71 +1,98 @@
+import { useCallback, useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, TextInput, TouchableOpacity, ToastAndroid } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import NavigationNames from '../../utils/NavigationNames';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NavigationNames from '../../utils/NavigationNames';
 
 const Login = ({ navigation }) => {
     const [Username, setUsername] = useState('');
     const [Password, setPassword] = useState('');
-
-    
-
-    useEffect(() => {
-        // Optionally, fetch previous login date here if needed
-    }, []);
-
-    const onLogin = async () => {
-        if (!Username || !Password) {
-            ToastAndroid.show('Please fill in required fields', ToastAndroid.SHORT);
-            return;
-        }
-    
-        try {
-            const response = await fetch('https://pos.kashmirbookdepot.com/webservice/api.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `user_name=${Username}&password=${Password}&query=user.auttentication`,
-            });
-    
-            const result = await response.json();
-            global.UserId = result.id;
-            // console.log('User ID:', global.UserId);
-            // console.log('Server response:', result); // Log the response for debugging
-    
-            if (result && result.error === "no") {
-                // Retrieve the previous login date from AsyncStorage
-                const previousLoginDate = await AsyncStorage.getItem('previousLoginDate');
+  
+    const onLogin = useCallback(async () => {
+      if (!Username || !Password) {
+        ToastAndroid.show('Please fill in required fields', ToastAndroid.SHORT);
+        return;
+      }
+  
+      try {
+        // Clear previous data to avoid using old login information
+        await AsyncStorage.multiRemove(['savedUsername', 'savedPassword', 'saveduserId', 'previousLoginDate']);
+        global.UserId = null; // Reset global.UserId
+  
+        // Add slight delay to ensure AsyncStorage is fully cleared
+        await new Promise(resolve => setTimeout(resolve, 100));
+  
+        const response = await fetch('https://pos.kashmirbookdepot.com/webservice/api.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `user_name=${Username}&password=${Password}&query=user.auttentication`,
+        });
+  
+        const result = await response.json();
+        console.log("API Response:", result);
+  
+        if (result && result.error === "no" && result.id) {
+            const currentLoginDate = new Date().toLocaleString();
                 
-                // Store the current date as the new login date
-                await AsyncStorage.setItem('previousLoginDate', new Date().toLocaleString()); 
-    
-                // Check if it is the user's first login
-                const isFirstLogin = previousLoginDate === null;
-    
-                // Store the first login flag
-                if (isFirstLogin) {
-                    await AsyncStorage.setItem('hasLoggedIn', 'true');
+                // Check if it's the first login
+                const previousLoginTime = await AsyncStorage.getItem('lastLoginTime');
+                
+                if (!previousLoginTime) {
+                    // If it's the first login, display "First Login"
+                    await AsyncStorage.setItem('lastLoginTime', currentLoginDate);
+                } else {
+                    // If not first login, update the login date
+                    await AsyncStorage.setItem('lastLoginTime', currentLoginDate);
                 }
-    
-                // Navigate to the welcome screen
-                navigation.navigate(NavigationNames.Bottom_Tab_Navigation, { 
-                    screen: NavigationNames.Wellcome,
-                    params: { 
-                        Username: Username,
-                        UserId: result.id,
-                        loginDate: isFirstLogin ? "First Login" : previousLoginDate, // Pass the previous login date
-                    }, 
-                });
-            } else {
-                // Show an error message if authentication fails
-                ToastAndroid.show('Invalid Username or Password', ToastAndroid.SHORT);
-            }
-        } catch (error) {
-            // Handle any network errors
-            ToastAndroid.show('Network error. Please try again later.', ToastAndroid.SHORT);
+        //   await AsyncStorage.setItem('previousLoginDate', currentLoginDate);
+          await AsyncStorage.setItem('savedUsername', Username);
+          await AsyncStorage.setItem('savedPassword', Password);
+          await AsyncStorage.setItem('saveduserId', result.id.toString());  // Ensure UserId is saved correctly
+  
+          global.UserId = result.id; // Set global.UserId with the new ID
+          console.log("New UserId set:", global.UserId);
+  
+          // Navigate to Welcome screen
+          navigation.navigate(NavigationNames.Bottom_Tab_Navigation, {
+            screen: NavigationNames.Wellcome,
+            params: { Username, loginDate: previousLoginTime || "First Login",
+
+             },
+          });
+        } else {
+          ToastAndroid.show('Invalid Username or Password', ToastAndroid.SHORT);
         }
-    };
+      } catch (error) {
+        ToastAndroid.show('Network error. Please try again later.', ToastAndroid.SHORT);
+        console.log(error, 'error');
+      }
+    }, [Username, Password, navigation]);
+    
+     // useEffect(() => {
+    //     const checkLoginExpiry = async () => {
+    //         const lastLoginTime = await AsyncStorage.getItem('lastLoginTime');
+    //         const savedUsername = await AsyncStorage.getItem('savedUsername');
+    //         const savedPassword = await AsyncStorage.getItem('savedPassword');
+
+    //         if (lastLoginTime && savedUsername && savedPassword) {
+    //             const timeElapsed = Date.now() - parseInt(lastLoginTime, 10);
+    //             const oneDay = 24 * 60 * 60 * 1000;
+
+    //             if (timeElapsed < oneDay) {
+    //                 setUsername(savedUsername);
+    //                 setPassword(savedPassword);
+
+    //                 onLogin(true);
+    //             } else {
+    //                 await AsyncStorage.multiRemove(['savedUsername', 'savedPassword', 'lastLoginTime', 'userId']);
+    //             }
+    //         }
+    //     };
+
+    //     checkLoginExpiry();
+    // }, [onLogin]);
+
+   
+
     return (
         <View style={styles.container}>
             <View style={styles.imgContainer}>
